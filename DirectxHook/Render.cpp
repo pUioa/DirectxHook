@@ -100,15 +100,30 @@ HRESULT STDMETHODCALLTYPE Render::HookFn_Present(IDXGISwapChain* This, UINT Sync
 			return g_pRender->Original_Present(This, SyncInterval, Flags);
 		
 	}
+	if (g_pRender->NeedReinitialization) {
+		if (SUCCEEDED(This->GetDevice(__uuidof(ID3D11Device), (void**)&g_pRender->g_pDevice)))
+		{
+			g_pRender->g_pDevice->GetImmediateContext(&g_pRender->g_pContext);
 
+
+			DXGI_SWAP_CHAIN_DESC Desc;
+			This->GetDesc(&Desc);
+			g_pRender->g_Hwnd = Desc.OutputWindow;
+			ID3D11Texture2D* pBackBuffer;
+			This->GetBuffer(NULL, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+			g_pRender->g_pDevice->CreateRenderTargetView(pBackBuffer, NULL, &g_pRender->g_pmainRenderTargetView);
+			pBackBuffer->Release();
+
+			ImGui_ImplDX11_Init(g_pRender->g_pDevice, g_pRender->g_pContext);
+			g_pRender->NeedReinitialization = false;
+		}
+	}
 
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
-	ImGui::Begin("Hello");
-	ImGui::End();
-	ImGui::GetForegroundDrawList()->AddLine(ImVec2(100.0f, 100.0f), ImVec2(500.0f,500.0f), IM_COL32(0, 255, 255, 255), 1.0f);
+	g_pRender->CallBack();
 
 	ImGui::Render();
 	g_pRender->g_pContext->OMSetRenderTargets(1, &g_pRender->g_pmainRenderTargetView, NULL);
@@ -117,9 +132,17 @@ HRESULT STDMETHODCALLTYPE Render::HookFn_Present(IDXGISwapChain* This, UINT Sync
 	return  g_pRender->Original_Present(This, SyncInterval, Flags);
 
 }
-
 HRESULT STDMETHODCALLTYPE Render::HookFn_ResizeBuffers(IDXGISwapChain* This, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags) {
-	return true;
+	
+	if (g_pRender->g_pDevice) {
+		g_pRender->g_pDevice->Release();
+		g_pRender->g_pmainRenderTargetView->Release();
+		ImGui_ImplDX11_Shutdown();
+		g_pRender->g_pDevice = nullptr;
+		g_pRender->NeedReinitialization = true;
+	}
+
+	return g_pRender->Original_ResizeBuffers(This,BufferCount,Width,Height,NewFormat,SwapChainFlags);
 }
 LRESULT WINAPI Render::HookFn_WndProc(const HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
