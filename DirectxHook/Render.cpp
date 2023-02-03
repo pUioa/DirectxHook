@@ -98,7 +98,7 @@ HRESULT STDMETHODCALLTYPE Render::HookFn_Present(IDXGISwapChain* This, UINT Sync
 		}
 		else
 			return g_pRender->Original_Present(This, SyncInterval, Flags);
-		
+
 	}
 	if (g_pRender->NeedReinitialization) {
 		if (SUCCEEDED(This->GetDevice(__uuidof(ID3D11Device), (void**)&g_pRender->g_pDevice)))					  //相关资源被释放要重新创建
@@ -133,7 +133,7 @@ HRESULT STDMETHODCALLTYPE Render::HookFn_Present(IDXGISwapChain* This, UINT Sync
 
 }
 HRESULT STDMETHODCALLTYPE Render::HookFn_ResizeBuffers(IDXGISwapChain* This, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags) {
-	
+
 	if (g_pRender->g_pDevice) {
 		g_pRender->g_pDevice->Release();
 		g_pRender->g_pmainRenderTargetView->Release();
@@ -142,7 +142,7 @@ HRESULT STDMETHODCALLTYPE Render::HookFn_ResizeBuffers(IDXGISwapChain* This, UIN
 		g_pRender->NeedReinitialization = true;
 	}
 
-	return g_pRender->Original_ResizeBuffers(This,BufferCount,Width,Height,NewFormat,SwapChainFlags);
+	return g_pRender->Original_ResizeBuffers(This, BufferCount, Width, Height, NewFormat, SwapChainFlags);
 }
 LRESULT WINAPI Render::HookFn_WndProc(const HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -170,9 +170,9 @@ BOOL Render::Init(std::function<void(void)> Fn) {
 		this->ChangeVirtualMethodTable(this->DirectxVirtualMethodTable, Index_Present, &HookFn_Present);								//替换虚表指针
 
 		this->ChangeVirtualMethodTable(this->DirectxVirtualMethodTable, Index_ResizeBuffers, &HookFn_ResizeBuffers);					//替换虚表指针
-	
-	
-	
+
+
+
 		this->g_pSwapChain->Release();																									//释放自己的交换链															
 		return TRUE;
 	}
