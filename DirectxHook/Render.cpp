@@ -41,7 +41,7 @@ BOOL Render::GetSwapChain() {
 BOOL Render::GetVirtualMethodTable(uintptr_t* Table, int index, uintptr_t* Method) {
 	try {
 
-		*Method = Table[index];;					//获取虚表方法
+		*Method = Table[index];	//获取虚表方法
 		return TRUE;
 	}
 	catch (...) {};
@@ -53,8 +53,8 @@ BOOL Render::ChangeVirtualMethodTable(uintptr_t* Table, int index, void* NewMeth
 	if (NewMethod) {
 		DWORD OldProtect = NULL;
 		try {
-			VirtualProtect((LPVOID)&Table[index], sizeof(uintptr_t), PAGE_EXECUTE_READWRITE, &OldProtect); //修改内存属性 虚表可读可执行不可写
-			Table[index] = (uintptr_t)NewMethod;//替换我们的方法
+			VirtualProtect((LPVOID)&Table[index], sizeof(uintptr_t), PAGE_EXECUTE_READWRITE, &OldProtect); 			//修改内存属性 虚表可读可执行不可写
+			Table[index] = (uintptr_t)NewMethod;																	//替换我们的方法
 			VirtualProtect((LPVOID)&Table[index], sizeof(uintptr_t), OldProtect, &OldProtect);						//改回内存属性
 			return TRUE;
 		}
@@ -63,7 +63,7 @@ BOOL Render::ChangeVirtualMethodTable(uintptr_t* Table, int index, void* NewMeth
 	return FALSE;
 }
 BOOL Render::ChangeWndProc(WNDPROC NewWndProc, WNDPROC* OldWndProc) {
-	*OldWndProc = (WNDPROC)SetWindowLongPtrA(this->g_Hwnd, GWLP_WNDPROC, (LONG_PTR)NewWndProc);
+	*OldWndProc = (WNDPROC)SetWindowLongPtrA(this->g_Hwnd, GWLP_WNDPROC, (LONG_PTR)NewWndProc);						//设置新的窗口消息 返回旧的
 	return *OldWndProc != NULL;
 }
 
@@ -74,7 +74,7 @@ HRESULT STDMETHODCALLTYPE Render::HookFn_Present(IDXGISwapChain* This, UINT Sync
 	if (!HaveInitImGuiFn) {
 		if (SUCCEEDED(This->GetDevice(__uuidof(ID3D11Device), (void**)&g_pRender->g_pDevice)))
 		{
-			g_pRender->g_pDevice->GetImmediateContext(&g_pRender->g_pContext);
+			g_pRender->g_pDevice->GetImmediateContext(&g_pRender->g_pContext);										//获得环境
 
 
 			DXGI_SWAP_CHAIN_DESC Desc;
@@ -82,15 +82,15 @@ HRESULT STDMETHODCALLTYPE Render::HookFn_Present(IDXGISwapChain* This, UINT Sync
 			g_pRender->g_Hwnd = Desc.OutputWindow;
 			ID3D11Texture2D* pBackBuffer;
 			This->GetBuffer(NULL, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
-			g_pRender->g_pDevice->CreateRenderTargetView(pBackBuffer, NULL, &g_pRender->g_pmainRenderTargetView);
+			g_pRender->g_pDevice->CreateRenderTargetView(pBackBuffer, NULL, &g_pRender->g_pmainRenderTargetView);  //绑定主渲染
 			pBackBuffer->Release();
 
 
-			ImGui::CreateContext();
+			ImGui::CreateContext();																				   //创建ImGui环境 仅需一次
 			ImGuiIO& io = ImGui::GetIO();
 			io.ConfigFlags = ImGuiConfigFlags_NoMouseCursorChange;
 			io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\simkai.ttf", 15.0f, 0, io.Fonts->GetGlyphRangesChineseFull());
-			io.ChangeImGuiFilePath("C:\\XinYu\\ImGui.ini", "C:\\XinYu\\ImGui.log");
+			io.ChangeImGuiFilePath("C:\\XinYu\\ImGui.ini", "C:\\XinYu\\ImGui.log");								   //重设ImGui输出目录
 
 			ImGui_ImplWin32_Init(g_pRender->g_Hwnd);
 			ImGui_ImplDX11_Init(g_pRender->g_pDevice, g_pRender->g_pContext);
@@ -101,7 +101,7 @@ HRESULT STDMETHODCALLTYPE Render::HookFn_Present(IDXGISwapChain* This, UINT Sync
 		
 	}
 	if (g_pRender->NeedReinitialization) {
-		if (SUCCEEDED(This->GetDevice(__uuidof(ID3D11Device), (void**)&g_pRender->g_pDevice)))
+		if (SUCCEEDED(This->GetDevice(__uuidof(ID3D11Device), (void**)&g_pRender->g_pDevice)))					  //相关资源被释放要重新创建
 		{
 			g_pRender->g_pDevice->GetImmediateContext(&g_pRender->g_pContext);
 
@@ -123,7 +123,7 @@ HRESULT STDMETHODCALLTYPE Render::HookFn_Present(IDXGISwapChain* This, UINT Sync
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
-	g_pRender->CallBack();
+	g_pRender->CallBack();																						 //渲染自己的绘制
 
 	ImGui::Render();
 	g_pRender->g_pContext->OMSetRenderTargets(1, &g_pRender->g_pmainRenderTargetView, NULL);
@@ -153,19 +153,19 @@ LRESULT WINAPI Render::HookFn_WndProc(const HWND hWnd, UINT uMsg, WPARAM wParam,
 
 
 BOOL Render::Init(std::function<void(void)> Fn) {
-	this->g_Hwnd = ::FindWindowA("UnrealWindow", NULL);
+	this->g_Hwnd = ::FindWindowA("UnrealWindow", NULL);																					//寻找虚幻引擎窗口
 
 	if (this->GetSwapChain()) {
 		g_pRender = this;																												//立即填充指针 挂钩后会立即调用
 		this->CallBack = Fn;																											//立即填充方法 挂钩后会立即调用
 
 		this->DirectxVirtualMethodTable = *(uintptr_t**)this->g_pSwapChain;																//取得Dx虚表
-
+																																		//等价于 (uintptr_t*)*(uintptr_t*)
 
 		this->GetVirtualMethodTable(this->DirectxVirtualMethodTable, Index_Present, (uintptr_t*)&this->Original_Present);				//获取原Present
 		this->GetVirtualMethodTable(this->DirectxVirtualMethodTable, Index_ResizeBuffers, (uintptr_t*)&this->Original_ResizeBuffers);   //获取原ResizeBuffers
 
-		this->ChangeWndProc((WNDPROC)&HookFn_WndProc, &this->Original_WndProc);														    //替换窗口消息	
+		this->ChangeWndProc((WNDPROC)&HookFn_WndProc, &this->Original_WndProc);															//替换窗口消息	
 
 		this->ChangeVirtualMethodTable(this->DirectxVirtualMethodTable, Index_Present, &HookFn_Present);								//替换虚表指针
 
@@ -173,7 +173,7 @@ BOOL Render::Init(std::function<void(void)> Fn) {
 	
 	
 	
-		this->g_pSwapChain->Release();																									//自己创建的交换链就可以释放了
+		this->g_pSwapChain->Release();																									//释放自己的交换链															
 		return TRUE;
 	}
 	return FALSE;
